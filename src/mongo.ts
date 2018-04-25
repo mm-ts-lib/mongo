@@ -1,4 +1,4 @@
-import { MongoClient, MongoClientOptions, Db, Collection, CollectionCreateOptions } from 'mongodb';
+import { MongoClient, IndexOptions, MongoClientOptions, Db, Collection, CollectionCreateOptions } from 'mongodb';
 import debug from 'debug';
 import _ from 'lodash';
 import path from 'path';
@@ -8,11 +8,7 @@ import process from 'process';
 export type INDEX_SCHEMA_T = {
   [Name: string]: {
     fields: {};
-    options: {
-      unique: boolean;
-      sparse: boolean;
-      dropDups: boolean;
-    };
+    options: IndexOptions;
   };
 };
 
