@@ -1,6 +1,6 @@
 {
   "name": "@tslib/mongo",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "TypeScript mongo",
   "main": "dist/src/mongo.js",
   "types": "dist/src/mongo.d.js",
