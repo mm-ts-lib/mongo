@@ -17,7 +17,7 @@ export class DbSchema<TDoc> {
   indexSchema: INDEX_SCHEMA_T;
   collOptions: CollectionCreateOptions;
   constructor(
-    collOptions: CollectionCreateOptions & { _dbName: string /* 自定义数据库*/ },
+    collOptions: CollectionCreateOptions & { _dbName?: string /* 自定义数据库*/ },
     indexSchema: INDEX_SCHEMA_T
   ) {
     this.indexSchema = indexSchema;
@@ -128,7 +128,9 @@ export class Mongo<T extends IDbSchemas> {
       const dbName = _.get(v, 'collOptions._dbName');
       if ((!this._client) || (!dbName)) return;
       // 打开和创建外部库
-      this._collections[k] = this._client.db(dbName).collection(k);
+      _d('----create extern db  collection:', dbName, k);
+      const externDb = this._client.db(dbName);
+      this._collections[k] = externDb.collection(k);
       _d('create extern db  collection:', dbName, k);
     })
 

@@ -9,6 +9,7 @@ const lodash_1 = __importDefault(require("lodash"));
 const path_1 = __importDefault(require("path"));
 class DbSchema {
     constructor(collOptions, indexSchema) {
+        this.documentSchema = {};
         this.indexSchema = indexSchema;
         this.collOptions = collOptions;
     }
@@ -18,11 +19,13 @@ exports.DbSchema = DbSchema;
 const _d = debug_1.default('app:' + path_1.default.basename(__filename, '.js'));
 // 如果数据库结构需要，则需要提供变更脚本来执行
 class Mongo {
-    constructor(url, config, modName, dbCollectionsDefine) {
+    constructor(url, options, modName, dbCollectionsDefine) {
+        this._client = null;
+        this._db = null;
         this._collections = {};
         this._dbCollectionsDefine = dbCollectionsDefine;
         this._url = url;
-        this._config = config;
+        this._options = options;
         this._modName = modName;
     }
     collections() {
@@ -30,7 +33,7 @@ class Mongo {
     }
     async connect() {
         _d('connect to mongodb');
-        this._client = await mongodb_1.MongoClient.connect(this._url, this._config);
+        this._client = await mongodb_1.MongoClient.connect(this._url, this._options);
         this._db = await this._client.db(this._modName);
         this._monitorDbEvent();
         await this._ensureSchemaCollections();
@@ -41,11 +44,15 @@ class Mongo {
         _d('open mongodb successed');
     }
     async _ensureSchemaCollections() {
+        if (!this._db)
+            return;
         // 获取当前存在的colls
         const curColls = lodash_1.default.keyBy(await this._db.collections(), 'collectionName');
+        const modCollDefines = lodash_1.default.pickBy(this._dbCollectionsDefine, v => !lodash_1.default.has(v.collOptions, "_dbName"));
+        const externCollDefines = lodash_1.default.pickBy(this._dbCollectionsDefine, v => lodash_1.default.has(v.collOptions, "_dbName"));
         // 不在定义中的colls将被重命名为_unused_xxx
         for (const colName of Object.keys(curColls)) {
-            if (this._dbCollectionsDefine[colName]) {
+            if (modCollDefines[colName]) {
                 _d('open existed collection:', colName);
                 // 有效的coll定义，打开collection
                 this._collections[colName] = curColls[colName];
@@ -62,11 +69,20 @@ class Mongo {
                 }
             }
         }
-        // 创建新的已定义colls
-        for (const newColl of lodash_1.default.difference(Object.keys(this._dbCollectionsDefine), Object.keys(curColls))) {
+        // 创建新的已定义模块colls
+        for (const newColl of lodash_1.default.difference(Object.keys(modCollDefines), Object.keys(curColls))) {
             this._collections[newColl] = await this._db.createCollection(newColl, this._dbCollectionsDefine[newColl].collOptions);
             _d('create new collection:', newColl);
         }
+        // 创建其他数据库中的colls
+        lodash_1.default.forEach(externCollDefines, (v, k) => {
+            const dbName = lodash_1.default.get(v, 'collOptions._dbName');
+            if ((!this._client) || (!dbName))
+                return;
+            // 打开和创建外部库
+            this._collections[k] = this._client.db(dbName).collection(k);
+            _d('create extern db  collection:', dbName, k);
+        });
     }
     async _ensureCollectionIndexes(coll, indexSchemas) {
         const indexes = lodash_1.default.keyBy(await coll.indexes(), 'name');
@@ -93,6 +109,8 @@ class Mongo {
         }
     }
     _monitorDbEvent() {
+        if (!this._db)
+            return;
         // 监听事件
         this._db.on('close', () => {
             _d('mongodb close:');

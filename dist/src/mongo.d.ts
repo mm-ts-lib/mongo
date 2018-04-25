@@ -1,19 +1,17 @@
-import { Collection, CollectionCreateOptions } from 'mongodb';
+import { IndexOptions, MongoClientOptions, Collection, CollectionCreateOptions } from 'mongodb';
 export declare type INDEX_SCHEMA_T = {
     [Name: string]: {
         fields: {};
-        options: {
-            unique: boolean;
-            sparse: boolean;
-            dropDups: boolean;
-        };
+        options: IndexOptions;
     };
 };
 export declare class DbSchema<TDoc> {
     documentSchema: TDoc;
     indexSchema: INDEX_SCHEMA_T;
     collOptions: CollectionCreateOptions;
-    constructor(collOptions: CollectionCreateOptions, indexSchema: INDEX_SCHEMA_T);
+    constructor(collOptions: CollectionCreateOptions & {
+        _dbName?: string;
+    }, indexSchema: INDEX_SCHEMA_T);
 }
 export interface IDbSchemas {
     [k: string]: {
@@ -27,13 +25,13 @@ export declare type IExportCollections<T extends IDbSchemas> = {
 };
 export declare class Mongo<T extends IDbSchemas> {
     private _url;
-    private _config;
+    private _options;
     private _modName;
     private _client;
     private _db;
     private _collections;
     private _dbCollectionsDefine;
-    constructor(url: string, config: any, modName: string, dbCollectionsDefine: T);
+    constructor(url: string, options: MongoClientOptions, modName: string, dbCollectionsDefine: T);
     collections(): IExportCollections<T>;
     connect(): Promise<void>;
     private _ensureSchemaCollections();
