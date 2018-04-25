@@ -17,13 +17,15 @@ export class DbSchema<TDoc> {
   indexSchema: INDEX_SCHEMA_T;
   collOptions: CollectionCreateOptions;
   constructor(
-    collOptions: CollectionCreateOptions,
+    collOptions: CollectionCreateOptions & { _dbName: string /* 自定义数据库*/ },
     indexSchema: INDEX_SCHEMA_T
   ) {
     this.indexSchema = indexSchema;
     this.collOptions = collOptions;
   }
 }
+
+
 
 // import { DB_COLLECTIONS_SCHEMA_T } from './_schema';
 
@@ -87,9 +89,14 @@ export class Mongo<T extends IDbSchemas> {
     if (!this._db) return;
     // 获取当前存在的colls
     const curColls = _.keyBy(await this._db.collections(), 'collectionName');
+
+    const modCollDefines = _.pickBy(this._dbCollectionsDefine, v => !_.has(v.collOptions, "_dbName"))
+    const externCollDefines = _.pickBy(this._dbCollectionsDefine, v => _.has(v.collOptions, "_dbName"))
+
+
     // 不在定义中的colls将被重命名为_unused_xxx
     for (const colName of Object.keys(curColls)) {
-      if (this._dbCollectionsDefine[colName]) {
+      if (modCollDefines[colName]) {
         _d('open existed collection:', colName);
         // 有效的coll定义，打开collection
         this._collections[colName] = curColls[colName];
@@ -104,9 +111,9 @@ export class Mongo<T extends IDbSchemas> {
         }
       }
     }
-    // 创建新的已定义colls
+    // 创建新的已定义模块colls
     for (const newColl of _.difference(
-      Object.keys(this._dbCollectionsDefine),
+      Object.keys(modCollDefines),
       Object.keys(curColls)
     )) {
       this._collections[newColl] = await this._db.createCollection(
@@ -115,6 +122,16 @@ export class Mongo<T extends IDbSchemas> {
       );
       _d('create new collection:', newColl);
     }
+
+    // 创建其他数据库中的colls
+    _.forEach(externCollDefines, (v, k) => {
+      const dbName = _.get(v, 'collOptions._dbName');
+      if ((!this._client) || (!dbName)) return;
+      // 打开和创建外部库
+      this._collections[k] = this._client.db(dbName).collection(k);
+      _d('create extern db  collection:', dbName, k);
+    })
+
   }
 
   private async _ensureCollectionIndexes(coll: Collection, indexSchemas: INDEX_SCHEMA_T) {
