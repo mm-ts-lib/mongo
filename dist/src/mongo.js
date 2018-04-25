@@ -38,8 +38,8 @@ class Mongo {
         this._monitorDbEvent();
         await this._ensureSchemaCollections();
         //创建索引
-        lodash_1.default.forEach(this._collections, (coll, name) => {
-            this._ensureCollectionIndexes(coll, this._dbCollectionsDefine[name].indexSchema);
+        lodash_1.default.forEach(this._collections, async (coll, name) => {
+            await this._ensureCollectionIndexes(coll, this._dbCollectionsDefine[name].indexSchema);
         });
         _d('open mongodb successed');
     }
@@ -75,13 +75,24 @@ class Mongo {
             _d('create new collection:', newColl);
         }
         // 创建其他数据库中的colls
-        lodash_1.default.forEach(externCollDefines, (v, k) => {
+        lodash_1.default.forEach(externCollDefines, async (v, k) => {
+            if (!v)
+                return;
             const dbName = lodash_1.default.get(v, 'collOptions._dbName');
             if ((!this._client) || (!dbName))
                 return;
-            // 打开和创建外部库
-            this._collections[k] = this._client.db(dbName).collection(k);
-            _d('create extern db  collection:', dbName, k);
+            // // 打开和创建外部库
+            // _d('----create extern db  collection:', dbName, k);
+            const externDb = this._client.db(dbName);
+            const extColls = lodash_1.default.keyBy(await externDb.collections(), 'collectionName');
+            if (!extColls[k]) {
+                // 创建collection
+                this._collections[k] = await externDb.createCollection(k, lodash_1.default.omit(v.collOptions, '_dbName'));
+            }
+            else {
+                this._collections[k] = extColls[k];
+            }
+            _d('create extern collection ok:', dbName, k);
         });
     }
     async _ensureCollectionIndexes(coll, indexSchemas) {
@@ -97,6 +108,7 @@ class Mongo {
                 _d('drop invalid index:', coll.collectionName, key);
             }
         }
+        // _d('ensure collection indexes OK:1', coll.collectionName, Object.keys(indexSchemas));
         // 创建新定义的index
         for (const key of Object.keys(indexSchemas)) {
             if (lodash_1.default.isEmpty(indexes[key])) {
@@ -107,6 +119,7 @@ class Mongo {
                 });
             }
         }
+        // _d('ensure collection indexes OK:2', coll.collectionName, Object.keys(indexSchemas));
     }
     _monitorDbEvent() {
         if (!this._db)

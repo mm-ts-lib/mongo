@@ -75,8 +75,8 @@ export class Mongo<T extends IDbSchemas> {
     await this._ensureSchemaCollections();
 
     //创建索引
-    _.forEach(this._collections, (coll, name) => {
-      this._ensureCollectionIndexes(
+    _.forEach(this._collections, async (coll, name) => {
+      await this._ensureCollectionIndexes(
         coll,
         this._dbCollectionsDefine[name].indexSchema
       );
@@ -124,25 +124,31 @@ export class Mongo<T extends IDbSchemas> {
     }
 
     // 创建其他数据库中的colls
-    _.forEach(externCollDefines, (v, k) => {
+    _.forEach(externCollDefines, async (v, k) => {
+      if (!v) return;
+
       const dbName = _.get(v, 'collOptions._dbName');
       if ((!this._client) || (!dbName)) return;
-      // 打开和创建外部库
-      _d('----create extern db  collection:', dbName, k);
+      // // 打开和创建外部库
+      // _d('----create extern db  collection:', dbName, k);
       const externDb = this._client.db(dbName);
-      this._collections[k] = externDb.collection(k);
-      _d('create extern db  collection:', dbName, k);
-    })
+      const extColls = _.keyBy(await externDb.collections(), 'collectionName');
+      if (!extColls[k]) {
+        // 创建collection
+        this._collections[k] = await externDb.createCollection(k, _.omit(v.collOptions, '_dbName'));
+      } else {
+        this._collections[k] = extColls[k];
+      }
+      _d('create extern collection ok:', dbName, k);
+
+    });
 
   }
 
   private async _ensureCollectionIndexes(coll: Collection, indexSchemas: INDEX_SCHEMA_T) {
     const indexes = _.keyBy(await coll.indexes(), 'name');
-    _d(
-      'ensure collection indexes:',
-      coll.collectionName,
-      Object.keys(indexSchemas)
-    );
+    _d('ensure collection indexes:', coll.collectionName, Object.keys(indexSchemas));
+
     // 删除非缺省_id_的无效索引
     for (const key of Object.keys(indexes)) {
       if (key.startsWith('_id')) continue;
@@ -152,6 +158,8 @@ export class Mongo<T extends IDbSchemas> {
         _d('drop invalid index:', coll.collectionName, key);
       }
     }
+    // _d('ensure collection indexes OK:1', coll.collectionName, Object.keys(indexSchemas));
+
     // 创建新定义的index
     for (const key of Object.keys(indexSchemas)) {
       if (_.isEmpty(indexes[key])) {
@@ -162,6 +170,9 @@ export class Mongo<T extends IDbSchemas> {
         });
       }
     }
+
+    // _d('ensure collection indexes OK:2', coll.collectionName, Object.keys(indexSchemas));
+
   }
 
   private _monitorDbEvent() {
