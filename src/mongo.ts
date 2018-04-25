@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection, CollectionCreateOptions } from 'mongodb';
+import { MongoClient, MongoClientOptions, Db, Collection, CollectionCreateOptions } from 'mongodb';
 import debug from 'debug';
 import _ from 'lodash';
 import path from 'path';
@@ -17,7 +17,7 @@ export type INDEX_SCHEMA_T = {
 };
 
 export class DbSchema<TDoc> {
-  documentSchema: TDoc;
+  documentSchema = {} as TDoc;
   indexSchema: INDEX_SCHEMA_T;
   collOptions: CollectionCreateOptions;
   constructor(
@@ -49,21 +49,21 @@ export type IExportCollections<T extends IDbSchemas> = {
 
 export class Mongo<T extends IDbSchemas> {
   private _url: string;
-  private _config: any;
+  private _options: MongoClientOptions;
   private _modName: string;
-  private _client: MongoClient;
-  private _db: Db;
+  private _client: MongoClient | null = null;
+  private _db: Db | null = null;
   private _collections = {} as IExportCollections<T>;
   private _dbCollectionsDefine: T;
   constructor(
     url: string,
-    config: any,
+    options: MongoClientOptions,
     modName: string,
     dbCollectionsDefine: T
   ) {
     this._dbCollectionsDefine = dbCollectionsDefine;
     this._url = url;
-    this._config = config;
+    this._options = options;
     this._modName = modName;
   }
   public collections() {
@@ -71,7 +71,7 @@ export class Mongo<T extends IDbSchemas> {
   }
   public async connect() {
     _d('connect to mongodb');
-    this._client = await MongoClient.connect(this._url, this._config);
+    this._client = await MongoClient.connect(this._url, this._options);
     this._db = await this._client.db(this._modName);
     this._monitorDbEvent();
     await this._ensureSchemaCollections();
@@ -88,6 +88,7 @@ export class Mongo<T extends IDbSchemas> {
   }
 
   private async _ensureSchemaCollections() {
+    if (!this._db) return;
     // 获取当前存在的colls
     const curColls = _.keyBy(await this._db.collections(), 'collectionName');
     // 不在定义中的colls将被重命名为_unused_xxx
@@ -120,7 +121,7 @@ export class Mongo<T extends IDbSchemas> {
     }
   }
 
-  private async _ensureCollectionIndexes(coll: Collection, indexSchemas) {
+  private async _ensureCollectionIndexes(coll: Collection, indexSchemas: INDEX_SCHEMA_T) {
     const indexes = _.keyBy(await coll.indexes(), 'name');
     _d(
       'ensure collection indexes:',
@@ -149,6 +150,7 @@ export class Mongo<T extends IDbSchemas> {
   }
 
   private _monitorDbEvent() {
+    if (!this._db) return;
     // 监听事件
     this._db.on('close', () => {
       _d('mongodb close:');
