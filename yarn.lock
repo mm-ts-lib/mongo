@@ -20,9 +20,9 @@
   version "4.14.108"
   resolved "https://registry.yarnpkg.com/@types/lodash/-/lodash-4.14.108.tgz#02656af3add2e5b3174f830862c47421c00ef817"
 
-"@types/mongodb@^3.0.15":
-  version "3.0.15"
-  resolved "https://registry.yarnpkg.com/@types/mongodb/-/mongodb-3.0.15.tgz#b9ae8d6dd4d24f6cc83aec23b224d03d58ae131c"
+"@types/mongodb@git+ssh://git@github.com:mm-ts-lib/types_mongodb.git":
+  version "1.0.2"
+  resolved "git+ssh://git@github.com:mm-ts-lib/types_mongodb.git#c68f41973eb6e5ce817b0e16595fcbe0b9e60ca0"
   dependencies:
     "@types/bson" "*"
     "@types/events" "*"
