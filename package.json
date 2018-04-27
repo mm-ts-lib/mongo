@@ -24,7 +24,7 @@
   },
   "homepage": "https://github.com/mm-ts-lib/mongo#readme",
   "dependencies": {
-    "@types/mongodb": "git+ssh://git@github.com:mm-ts-lib/types_mongodb.git",
+    "@types/mongodb": "git+https://github.com/mm-ts-lib/types_mongodb.git",
     "debug": "^3.1.0",
     "lodash": "^4.17.10",
     "mongodb": "^3.0.7"
