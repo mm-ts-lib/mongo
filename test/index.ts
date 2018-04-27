@@ -25,6 +25,7 @@ const db = mongo.collections();
   console.log('--result--!', result);
 
   await db.test.insertOne({
-    name: 'abcdefg'
+    name: 'abcdefg',
+    uid: 888
   });
 })();
