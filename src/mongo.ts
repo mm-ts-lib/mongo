@@ -92,6 +92,9 @@ export class Mongo<T extends IDbSchemas> {
     this._options = options;
     this._modName = modName;
   }
+  public getMongoClient() {
+    return this._client;
+  }
   /**
    * 获取当前定义的所有数据库记录集
    */
