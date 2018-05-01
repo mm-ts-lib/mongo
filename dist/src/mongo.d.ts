@@ -1,4 +1,4 @@
-import { IndexOptions, MongoClientOptions, Collection, CollectionCreateOptions } from 'mongodb';
+import { MongoClient, IndexOptions, MongoClientOptions, Collection, CollectionCreateOptions } from 'mongodb';
 /**
  * 数据库索引类型
  */
@@ -60,6 +60,7 @@ export declare class Mongo<T extends IDbSchemas> {
      * @param dbCollectionsDefine 数据库方案定义
      */
     constructor(url: string, options: MongoClientOptions, modName: string, dbCollectionsDefine: T);
+    getMongoClient(): MongoClient | null;
     /**
      * 获取当前定义的所有数据库记录集
      */
