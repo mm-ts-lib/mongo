@@ -93,6 +93,7 @@ export class Mongo<T extends IDbSchemas> {
     this._modName = modName;
   }
   public getMongoClient() {
+    if (this._client === null) throw new Error('Mongodb client Invalid!!');
     return this._client;
   }
   /**
