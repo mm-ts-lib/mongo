@@ -169,8 +169,8 @@ export class Mongo<T extends IDbSchemas> {
     }
 
     // 创建其他数据库中的colls，不使用K作为外部数据库名称，使用_extDb的col名称
-    _.forEach(externCollDefines, async (v, k) => {
-      if (!v) return;
+    for (const k of Object.keys(externCollDefines)) {
+      const v = externCollDefines[k];
 
       const extDbInfo: IExtDb = _.get(v, 'collOptions._extDb');
       if ((!this._client) || (!extDbInfo)) return;
@@ -185,7 +185,7 @@ export class Mongo<T extends IDbSchemas> {
         this._collections[k] = extColls[k];
       }
       _d('create extern collection ok:', extDbInfo);
-    });
+    };
 
   }
 
