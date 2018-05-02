@@ -171,6 +171,7 @@ export class Mongo<T extends IDbSchemas> {
     // 创建其他数据库中的colls，不使用K作为外部数据库名称，使用_extDb的col名称
     for (const k of Object.keys(externCollDefines)) {
       const v = externCollDefines[k];
+      if (!v) continue;
 
       const extDbInfo: IExtDb = _.get(v, 'collOptions._extDb');
       if ((!this._client) || (!extDbInfo)) return;
