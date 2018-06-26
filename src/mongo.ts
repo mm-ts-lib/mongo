@@ -1,4 +1,11 @@
-import { MongoClient, IndexOptions, MongoClientOptions, Db, Collection, CollectionCreateOptions } from 'mongodb';
+import {
+  MongoClient,
+  IndexOptions,
+  MongoClientOptions,
+  Db,
+  Collection,
+  CollectionCreateOptions,
+} from 'mongodb';
 import debug from 'debug';
 import _ from 'lodash';
 import path from 'path';
@@ -17,17 +24,16 @@ export type INDEX_SCHEMA_T = {
 };
 
 export interface IExtDb {
-  db: string /* 自定义数据库名称*/
-  col: string /* 自定义数据库集合名称*/
-
+  db: string /* 自定义数据库名称*/;
+  col: string /* 自定义数据库集合名称*/;
 }
 /**
  * 构造一个数据库定义方案
  */
 export class DbSchema<TDoc> {
   documentSchema = {} as TDoc; // 数据库方案
-  indexSchema: INDEX_SCHEMA_T;//索引方案
-  collOptions: CollectionCreateOptions;//数据库选项
+  indexSchema: INDEX_SCHEMA_T; //索引方案
+  collOptions: CollectionCreateOptions; //数据库选项
   /**
    * 构造数据库方案
    * @param collOptions  集合定义选项
@@ -35,15 +41,14 @@ export class DbSchema<TDoc> {
    */
   constructor(
     collOptions: CollectionCreateOptions & {
-      _extDb?: IExtDb
+      _extDb?: IExtDb;
     },
-    indexSchema: INDEX_SCHEMA_T
+    indexSchema: INDEX_SCHEMA_T,
   ) {
     this.indexSchema = indexSchema;
     this.collOptions = collOptions;
   }
 }
-
 
 /**
  * 数据库定义接口
@@ -85,7 +90,7 @@ export class Mongo<T extends IDbSchemas> {
     url: string,
     options: MongoClientOptions,
     modName: string,
-    dbCollectionsDefine: T
+    dbCollectionsDefine: T,
   ) {
     this._dbCollectionsDefine = dbCollectionsDefine;
     this._url = url;
@@ -107,7 +112,10 @@ export class Mongo<T extends IDbSchemas> {
    */
   public async connect() {
     _d('connect to mongodb');
-    this._client = await MongoClient.connect(this._url, this._options);
+    this._client = await MongoClient.connect(
+      this._url,
+      this._options,
+    );
     this._db = await this._client.db(this._modName);
     this._monitorDbEvent();
     await this._ensureSchemaCollections();
@@ -116,7 +124,7 @@ export class Mongo<T extends IDbSchemas> {
     _.forEach(this._collections, async (coll, name) => {
       await this._ensureCollectionIndexes(
         coll,
-        this._dbCollectionsDefine[name].indexSchema
+        this._dbCollectionsDefine[name].indexSchema,
       );
     });
 
@@ -136,8 +144,13 @@ export class Mongo<T extends IDbSchemas> {
     // 获取当前存在的colls
     const curColls = _.keyBy(await this._db.collections(), 'collectionName');
 
-    const modCollDefines = _.pickBy(this._dbCollectionsDefine, v => !_.has(v.collOptions, "_extDb"))
-    const externCollDefines = _.pickBy(this._dbCollectionsDefine, v => _.has(v.collOptions, "_extDb"))
+    const modCollDefines = _.pickBy(
+      this._dbCollectionsDefine,
+      v => !_.has(v.collOptions, '_extDb'),
+    );
+    const externCollDefines = _.pickBy(this._dbCollectionsDefine, v =>
+      _.has(v.collOptions, '_extDb'),
+    );
 
     // 不在定义中的colls将被重命名为_unused_xxx
     for (const colName of Object.keys(curColls)) {
@@ -147,7 +160,7 @@ export class Mongo<T extends IDbSchemas> {
         this._collections[colName] = curColls[colName];
       } else {
         // 重命名和检测无效的collection
-        if (!colName.startsWith('_')) {
+        if (!colName.startsWith('_') && !colName.startsWith('system.')) {
           const name = '_unused_' + colName;
           await this._db.renameCollection(colName, name);
           _d('rename unused collection:', name);
@@ -159,11 +172,11 @@ export class Mongo<T extends IDbSchemas> {
     // 创建新的已定义模块colls
     for (const newColl of _.difference(
       Object.keys(modCollDefines),
-      Object.keys(curColls)
+      Object.keys(curColls),
     )) {
       this._collections[newColl] = await this._db.createCollection(
         newColl,
-        this._dbCollectionsDefine[newColl].collOptions
+        this._dbCollectionsDefine[newColl].collOptions,
       );
       _d('create new collection:', newColl);
     }
@@ -174,23 +187,29 @@ export class Mongo<T extends IDbSchemas> {
       if (!v) continue;
 
       const extDbInfo: IExtDb = _.get(v, 'collOptions._extDb');
-      if ((!this._client) || (!extDbInfo)) return;
+      if (!this._client || !extDbInfo) return;
       // // 打开和创建外部库
       // _d('----create extern db  collection:', dbName, k);
       const externDb = this._client.db(extDbInfo.db);
       const extColls = _.keyBy(await externDb.collections(), 'collectionName');
       if (!extColls[extDbInfo.col]) {
         // 创建collection
-        this._collections[k] = await externDb.createCollection(extDbInfo.col, _.omit(v.collOptions, '_extDb'));
+        _d('create extern collection ok:', extDbInfo);
+        this._collections[k] = await externDb.createCollection(
+          extDbInfo.col,
+          _.omit(v.collOptions, '_extDb'),
+        );
       } else {
-        this._collections[k] = extColls[k];
+        _d('open extern collection ok:', extDbInfo);
+        this._collections[k] = extColls[extDbInfo.col];
       }
-      _d('create extern collection ok:', extDbInfo);
-    };
-
+    }
   }
 
-  private async _ensureCollectionIndexes(coll: Collection, indexSchemas: INDEX_SCHEMA_T) {
+  private async _ensureCollectionIndexes(
+    coll: Collection,
+    indexSchemas: INDEX_SCHEMA_T,
+  ) {
     // 新增功能，如果配置索引为空，则不处理索引信息
     // 为了避免多个项目打开一个数据库的冲突问题
     if (_.isEmpty(indexSchemas)) {
@@ -200,7 +219,11 @@ export class Mongo<T extends IDbSchemas> {
     const indexsArray = await coll.indexes();
 
     const indexes = _.keyBy(indexsArray, 'name');
-    _d('ensure collection indexes:', coll.collectionName, Object.keys(indexSchemas));
+    _d(
+      'ensure collection indexes:',
+      coll.collectionName,
+      Object.keys(indexSchemas),
+    );
 
     // 删除非缺省_id_的无效索引
     for (const key of Object.keys(indexes)) {
@@ -219,11 +242,10 @@ export class Mongo<T extends IDbSchemas> {
         _d('create new index:', coll.collectionName, key, indexSchemas[key]);
         await coll.createIndex(indexSchemas[key].fields, {
           name: key,
-          ...indexSchemas[key].options
+          ...indexSchemas[key].options,
         });
       }
     }
-
   }
 
   private _monitorDbEvent() {
